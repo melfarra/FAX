@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interesting Facts Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app" class="container mt-5">
+        <h1 class="text-center">Interesting Facts Generator</h1>
+        <div class="form-group">
+            <label for="topic-select">Choose a topic:</label>
+            <select id="topic-select" class="form-control">
+                <option value="science">Science</option>
+                <option value="history">History</option>
+                <option value="technology">Technology</option>
+                <!-- Add more topics as needed -->
+            </select>
+        </div>
+        <button id="generate-fact" class="btn btn-primary">Generate Fact</button>
+        <div id="fact-display" class="mt-3 alert alert-info"></div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html> 
