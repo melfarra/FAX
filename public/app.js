@@ -10,6 +10,7 @@ document.getElementById('generate-fact').addEventListener('click', function() {
             return response.json();
         })
         .then(data => {
+            console.log(data);
             if (data.length === 0) {
                 factDisplay.textContent = 'No facts available for this topic.';
             } else {

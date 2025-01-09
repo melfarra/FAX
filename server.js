@@ -1,10 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const app = express();
 const port = 3000;
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/factsDB', { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(process.env.MONGODB_URI);
 
 // Define a Fact schema
 const factSchema = new mongoose.Schema({
@@ -16,14 +17,19 @@ const factSchema = new mongoose.Schema({
 const Fact = mongoose.model('Fact', factSchema);
 
 // Fetch facts from the database
-app.get('/facts/:topic', (req, res) => {
-    Fact.find({ topic: req.params.topic }, (err, facts) => {
-        if (err) {
-            res.status(500).send('Error fetching facts');
-        } else {
-            res.json(facts.map(fact => fact.content));
-        }
-    });
+app.get('/facts/:topic', async (req, res) => {
+    try {
+        const facts = await Fact.find({ topic: req.params.topic });
+        res.json(facts.map(fact => fact.content));
+    } catch (err) {
+        res.status(500).send('Error fetching facts');
+    }
+});
+
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
 });
 
 app.listen(port, () => {
