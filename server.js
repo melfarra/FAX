@@ -62,7 +62,7 @@ app.get('/generate-fact/:topic', async (req, res) => {
                     }
                 ],
                 max_tokens: 100,
-                temperature: 0.9 // Increase creativity
+                temperature: 1.0 // Increase creativity
             });
 
             fact = completion.choices[0].message.content;
