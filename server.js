@@ -1,13 +1,11 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
+const cors = require('cors');
+const path = require('path');
 const OpenAI = require('openai');
+const mongoose = require('mongoose');
 const app = express();
 const port = 3000;
-
-// Serve static files from the public directory
-app.use(express.static('public'));
-app.use(express.json());
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -17,122 +15,141 @@ const openai = new OpenAI({
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI);
 
-// Define a Fact schema
+// Define Fact Schema
 const factSchema = new mongoose.Schema({
-    topic: String,
+    category: String,
     content: String,
     createdAt: { type: Date, default: Date.now },
-    lastShown: { type: Date, default: Date.now }  // Track when the fact was last displayed
+    lastShown: { type: Date, default: null }
 });
 
-// Create a Fact model
 const Fact = mongoose.model('Fact', factSchema);
 
-// Simple similarity check function
-function similarity(str1, str2) {
-    const words1 = str1.toLowerCase().split(' ');
-    const words2 = str2.toLowerCase().split(' ');
-    const commonWords = words1.filter(word => words2.includes(word));
-    return commonWords.length / Math.max(words1.length, words2.length);
-}
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
 
-// Generate fact using OpenAI
-app.get('/generate-fact/:topic', async (req, res) => {
+// Function to generate a fact using OpenAI
+async function generateFact(category) {
     try {
-        // First, get all existing facts for this topic
-        const existingFacts = await Fact.find({ topic: req.params.topic });
-        const existingContents = existingFacts.map(fact => fact.content.toLowerCase());
-
-        let isUnique = false;
-        let fact = '';
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (!isUnique && attempts < maxAttempts) {
-            const completion = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are a helpful assistant that provides interesting facts. Please provide a completely unique fact but do not offer any dialogue before or after you state the fact. Do not include any other text or dialogue."
-                    },
-                    {
-                        role: "user",
-                        content: `Tell me a unique and interesting fact about ${req.params.topic} that is different from these existing facts: ${existingContents.join(', ')}. Make sure the fact is completely different from the existing ones.`
-                    }
-                ],
-                max_tokens: 100,
-                temperature: 1.0 // Increase creativity
-            });
-
-            fact = completion.choices[0].message.content;
-            
-            // Check if the generated fact is unique enough
-            isUnique = !existingContents.some(existingFact => 
-                similarity(fact.toLowerCase(), existingFact) > 0.7 // Threshold for similarity
-            );
-            
-            attempts++;
-        }
-
-        if (!isUnique && attempts >= maxAttempts) {
-            return res.status(400).json({ error: 'Unable to generate a unique fact. Please try again.' });
-        }
-
-        // Save the unique fact to MongoDB
-        await Fact.create({
-            topic: req.params.topic,
-            content: fact,
-            lastShown: new Date()
+        const completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a direct fact provider. Output ONLY the raw fact with no prefixes, suffixes, or dialogue. Never use phrases like 'Random fact', 'Did you know', 'Here's a fact', etc. Start directly with the fact content. Keep facts concise and interesting."
+                },
+                {
+                    role: "user",
+                    content: `Generate a unique interesting fact about ${category}. Output ONLY the fact itself.`
+                }
+            ],
+            max_tokens: 100,
+            temperature: 0.8
         });
 
-        res.json({ fact });
+        let fact = completion.choices[0].message.content.trim();
+        
+        // Clean up the fact
+        fact = fact.replace(/^(random fact:|fact:|here's a fact:|did you know( that)?:|fun fact:|interesting(ly)?:)/gi, '');
+        fact = fact.replace(/[!?]+$/, '.');
+        fact = fact.trim();
+        
+        // Ensure proper capitalization and punctuation
+        fact = fact.charAt(0).toUpperCase() + fact.slice(1);
+        if (!fact.match(/[.!?]$/)) {
+            fact += '.';
+        }
+
+        // Save the fact to database
+        await Fact.create({
+            category: category === 'random' ? 'random' : category,
+            content: fact
+        });
+
+        return fact;
     } catch (error) {
         console.error('Error generating fact:', error);
-        res.status(500).json({ error: 'Failed to generate fact' });
+        throw error;
     }
-});
+}
 
-// Fetch facts from the database
-app.get('/facts/:topic', async (req, res) => {
+// Get facts from database or generate new ones
+async function getFacts(category, count = 3) {
     try {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        // Find facts that haven't been shown in the last 6 hours
+        const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+        let query = category === 'random' ? {} : { category };
+        
+        let facts = await Fact.aggregate([
+            { $match: { 
+                ...query,
+                $or: [
+                    { lastShown: { $lt: sixHoursAgo } },
+                    { lastShown: null }
+                ]
+            }},
+            { $sample: { size: count } }
+        ]);
 
-        // Find facts that haven't been shown in the last 6 months
-        const facts = await Fact.find({
-            topic: req.params.topic,
-            lastShown: { $lt: sixMonthsAgo }
-        });
-
-        // If no eligible facts, fetch all facts (fallback)
-        if (facts.length === 0) {
-            const allFacts = await Fact.find({ topic: req.params.topic });
-            if (allFacts.length === 0) {
-                return res.json([]);
+        // If we don't have enough facts, generate new ones
+        if (facts.length < count) {
+            const neededFacts = count - facts.length;
+            for (let i = 0; i < neededFacts; i++) {
+                const newFact = await generateFact(category);
+                facts.push({ content: newFact });
             }
-            // Select a random fact from all available facts
-            const randomFact = allFacts[Math.floor(Math.random() * allFacts.length)];
-            // Update lastShown timestamp
-            await Fact.findByIdAndUpdate(randomFact._id, { lastShown: new Date() });
-            return res.json([randomFact.content]);
         }
 
-        // Select a random fact from eligible facts
-        const randomFact = facts[Math.floor(Math.random() * facts.length)];
-        // Update lastShown timestamp
-        await Fact.findByIdAndUpdate(randomFact._id, { lastShown: new Date() });
-        res.json([randomFact.content]);
-    } catch (err) {
-        console.error('Error:', err);
-        res.status(500).send('Error fetching facts');
+        // Update lastShown timestamp for returned facts
+        const factIds = facts.map(f => f._id).filter(id => id);
+        if (factIds.length > 0) {
+            await Fact.updateMany(
+                { _id: { $in: factIds } },
+                { $set: { lastShown: new Date() } }
+            );
+        }
+
+        return facts.map(f => f.content);
+    } catch (error) {
+        console.error('Error getting facts:', error);
+        throw error;
+    }
+}
+
+// Serve index.html for the root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Get facts for any category (including random)
+app.get('/api/facts/:category', async (req, res) => {
+    try {
+        const category = req.params.category;
+        const facts = await getFacts(category);
+        res.json({ facts });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Failed to generate facts' });
     }
 });
 
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+// Endpoint to manually generate and store facts
+app.post('/api/generate-facts', async (req, res) => {
+    try {
+        const { category, count = 10 } = req.body;
+        const facts = [];
+        for (let i = 0; i < count; i++) {
+            const fact = await generateFact(category);
+            facts.push(fact);
+        }
+        res.json({ message: `Generated ${facts.length} facts for ${category}` });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Failed to generate facts' });
+    }
 });
 
 app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
+    console.log(`Server running at http://localhost:${port}`);
 }); 
