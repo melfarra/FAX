@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const signupForm = document.getElementById('signup-form');
     const authTabs = document.querySelectorAll('.auth-tab');
     const googleAuthButton = document.getElementById('google-auth');
+    const savedFactsContainer = document.getElementById('saved-facts-container');
+    const savedFactsGrid = document.querySelector('.saved-facts-grid');
+    const savedFactsFilters = document.querySelector('.saved-facts-filters');
 
     let currentFacts = [];
     let currentFactIndex = 0;
@@ -233,6 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (animation) {
             card.classList.add(animation);
         }
+
+        // Add save button
+        addSaveButton();
     }
 
     // Return to categories view
@@ -312,9 +318,128 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add save button to fact cards
     function addSaveButton() {
+        const existingButton = document.querySelector('.save-button');
+        if (existingButton) existingButton.remove();
+
         const saveButton = document.createElement('button');
-        saveButton.innerHTML = '<i class="fas fa-bookmark"></i>';
         saveButton.className = 'save-button';
-        // ... event handlers
+        saveButton.innerHTML = '<i class="fas fa-bookmark"></i>';
+        
+        saveButton.addEventListener('click', async () => {
+            if (!currentUser) {
+                authModal.style.display = 'flex';
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth('/api/facts/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        fact: currentFacts[currentFactIndex],
+                        category: currentCategory
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to save fact');
+                
+                saveButton.classList.add('saved');
+                setTimeout(() => {
+                    saveButton.classList.remove('saved');
+                }, 1000);
+            } catch (error) {
+                console.error('Error saving fact:', error);
+            }
+        });
+
+        document.querySelector('.fact-card').appendChild(saveButton);
     }
+
+    // Add "My Facts" button to header
+    const headerButtons = document.querySelector('.header-buttons');
+    const myFactsButton = document.createElement('button');
+    myFactsButton.className = 'auth-button';
+    myFactsButton.innerHTML = '<i class="fas fa-bookmark"></i> My Facts';
+    headerButtons.insertBefore(myFactsButton, headerButtons.lastElementChild);
+
+    // My Facts button handler
+    myFactsButton.addEventListener('click', async () => {
+        if (!currentUser) {
+            authModal.style.display = 'flex';
+            return;
+        }
+        await loadSavedFacts();
+        categoriesGrid.style.display = 'none';
+        factContainer.style.display = 'none';
+        savedFactsContainer.style.display = 'block';
+    });
+
+    // Load saved facts
+    async function loadSavedFacts() {
+        try {
+            const response = await fetchWithAuth('/api/facts/saved');
+            if (!response.ok) throw new Error('Failed to fetch saved facts');
+            
+            const data = await response.json();
+            displaySavedFacts(data.facts);
+            updateSavedFactsFilters(data.facts);
+        } catch (error) {
+            console.error('Error loading saved facts:', error);
+        }
+    }
+
+    // Display saved facts
+    function displaySavedFacts(facts) {
+        savedFactsGrid.innerHTML = '';
+        facts.forEach(fact => {
+            const card = document.createElement('div');
+            card.className = 'saved-fact-card';
+            card.innerHTML = `
+                <p class="fact-content">${fact.fact}</p>
+                <div class="saved-fact-meta">
+                    <span class="category-tag">${fact.category}</span>
+                    <span class="saved-date">${new Date(fact.savedAt).toLocaleDateString()}</span>
+                </div>
+                <button class="delete-saved" onclick="deleteSavedFact('${fact._id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            savedFactsGrid.appendChild(card);
+        });
+    }
+
+    // Update saved facts filters
+    function updateSavedFactsFilters(facts) {
+        const categories = [...new Set(facts.map(f => f.category))];
+        savedFactsFilters.innerHTML = `
+            <button class="category-filter active" data-category="all">All</button>
+            ${categories.map(cat => `
+                <button class="category-filter" data-category="${cat}">${cat}</button>
+            `).join('')}
+        `;
+    }
+
+    // Filter saved facts
+    savedFactsFilters.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('category-filter')) return;
+
+        const category = e.target.dataset.category;
+        const cards = savedFactsGrid.querySelectorAll('.saved-fact-card');
+
+        document.querySelectorAll('.category-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        e.target.classList.add('active');
+
+        cards.forEach(card => {
+            const cardCategory = card.querySelector('.category-tag').textContent;
+            if (category === 'all' || category === cardCategory) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
 }); 

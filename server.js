@@ -151,7 +151,11 @@ app.post('/api/generate-facts', async (req, res) => {
 });
 
 const authRoutes = require('./auth/routes/auth.routes');
+const factsRoutes = require('./auth/routes/facts.routes');
+
+// Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/facts', factsRoutes);
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
