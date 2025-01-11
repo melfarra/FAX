@@ -296,4 +296,25 @@ document.addEventListener('DOMContentLoaded', () => {
             themeModal.style.display = 'none';
         }
     });
+
+    // Save fact functionality
+    function saveFact(fact) {
+        const token = localStorage.getItem('token');
+        return fetch('/api/facts/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ fact })
+        });
+    }
+
+    // Add save button to fact cards
+    function addSaveButton() {
+        const saveButton = document.createElement('button');
+        saveButton.innerHTML = '<i class="fas fa-bookmark"></i>';
+        saveButton.className = 'save-button';
+        // ... event handlers
+    }
 }); 

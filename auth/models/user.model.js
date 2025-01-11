@@ -27,16 +27,28 @@ const userSchema = new mongoose.Schema({
         sparse: true
     },
     preferences: {
-        topics: [String],
-        template: {
-            type: String,
-            default: 'default'
+        defaultTheme: String,
+        favoriteCategories: [String],
+        factDisplayPreferences: {
+            fontSize: String,
+            animationSpeed: String,
+            autoPlay: Boolean
+        },
+        notifications: {
+            dailyFact: Boolean,
+            newCategories: Boolean
         }
     },
     createdAt: {
         type: Date,
         default: Date.now
-    }
+    },
+    savedFacts: [{
+        fact: String,
+        category: String,
+        savedAt: { type: Date, default: Date.now },
+        notes: String  // Optional personal notes
+    }]
 });
 
 // Hash password before saving
