@@ -9,10 +9,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const openThemesButton = document.getElementById('open-themes');
     const closeThemesButton = document.getElementById('close-themes');
     const themeModal = document.getElementById('theme-modal');
+    const authButton = document.getElementById('auth-button');
+    const authModal = document.getElementById('auth-modal');
+    const closeAuthButton = document.getElementById('close-auth');
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const googleAuthButton = document.getElementById('google-auth');
 
     let currentFacts = [];
     let currentFactIndex = 0;
     let currentCategory = '';
+    let currentUser = null;
 
     // Theme handling
     openThemesButton.addEventListener('click', () => {
@@ -44,6 +52,143 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.className = `${savedTheme}-theme`;
     }
 
+    // Check if user is already logged in
+    const token = localStorage.getItem('token');
+    if (token) {
+        fetch('/api/auth/verify', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.user) {
+                currentUser = data.user;
+                updateAuthButton();
+            }
+        })
+        .catch(console.error);
+    }
+
+    // Auth Modal Controls
+    authButton.addEventListener('click', () => {
+        if (currentUser) {
+            // Handle logout
+            localStorage.removeItem('token');
+            currentUser = null;
+            updateAuthButton();
+        } else {
+            authModal.style.display = 'flex';
+        }
+    });
+
+    closeAuthButton.addEventListener('click', () => {
+        authModal.style.display = 'none';
+    });
+
+    // Auth Tab Switching
+    authTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetForm = tab.dataset.tab === 'login' ? loginForm : signupForm;
+            const otherForm = tab.dataset.tab === 'login' ? signupForm : loginForm;
+            
+            authTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            targetForm.style.display = 'flex';
+            otherForm.style.display = 'none';
+        });
+    });
+
+    // Login Form Handler
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = loginForm.querySelector('input[type="email"]').value;
+        const password = loginForm.querySelector('input[type="password"]').value;
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+                currentUser = data.data.user;
+                updateAuthButton();
+                authModal.style.display = 'none';
+                loginForm.reset();
+            } else {
+                alert(data.message || 'Login failed');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed. Please try again.');
+        }
+    });
+
+    // Signup Form Handler
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = signupForm.querySelector('input[type="text"]').value;
+        const email = signupForm.querySelector('input[type="email"]').value;
+        const password = signupForm.querySelector('input[type="password"]').value;
+
+        try {
+            const response = await fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email, password })
+            });
+
+            const data = await response.json();
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+                currentUser = data.data.user;
+                updateAuthButton();
+                authModal.style.display = 'none';
+                signupForm.reset();
+            } else {
+                alert(data.message || 'Signup failed');
+            }
+        } catch (error) {
+            console.error('Signup error:', error);
+            alert('Signup failed. Please try again.');
+        }
+    });
+
+    // Google Auth Handler
+    googleAuthButton.addEventListener('click', () => {
+        // Implement Google OAuth flow
+        window.location.href = '/api/auth/google';
+    });
+
+    function updateAuthButton() {
+        if (currentUser) {
+            authButton.innerHTML = `<i class="fas fa-user"></i> ${currentUser.name}`;
+        } else {
+            authButton.innerHTML = `<i class="fas fa-user"></i> Sign In`;
+        }
+    }
+
+    // Add Authorization header to fact requests
+    async function fetchWithAuth(url, options = {}) {
+        const token = localStorage.getItem('token');
+        if (token) {
+            options.headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+        }
+        return fetch(url, options);
+    }
+
     // Add click handlers to all category boxes
     document.querySelectorAll('.category-box').forEach(box => {
         box.addEventListener('click', async () => {
@@ -58,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             factContainer.style.display = 'block';
             
             try {
-                const response = await fetch(`/api/facts/${currentCategory}`);
+                const response = await fetchWithAuth(`/api/facts/${currentCategory}`);
                 if (!response.ok) throw new Error('Failed to fetch facts');
                 
                 const data = await response.json();
@@ -127,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(async () => {
             try {
                 // Always fetch new facts when clicking next
-                const response = await fetch(`/api/facts/${currentCategory}`);
+                const response = await fetchWithAuth(`/api/facts/${currentCategory}`);
                 if (!response.ok) throw new Error('Failed to fetch facts');
                 
                 const data = await response.json();
