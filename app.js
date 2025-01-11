@@ -325,6 +325,11 @@ document.addEventListener('DOMContentLoaded', () => {
         saveButton.className = 'save-button';
         saveButton.innerHTML = '<i class="fas fa-bookmark"></i>';
         
+        // Check if fact is already saved
+        if (currentFacts[currentFactIndex]) {
+            updateSaveButtonState(currentFacts[currentFactIndex]);
+        }
+        
         saveButton.addEventListener('click', async () => {
             if (!currentUser) {
                 authModal.style.display = 'flex';
@@ -346,9 +351,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!response.ok) throw new Error('Failed to save fact');
                 
                 saveButton.classList.add('saved');
-                setTimeout(() => {
-                    saveButton.classList.remove('saved');
-                }, 1000);
             } catch (error) {
                 console.error('Error saving fact:', error);
             }
@@ -393,6 +395,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display saved facts
     function displaySavedFacts(facts) {
         savedFactsGrid.innerHTML = '';
+        if (!facts || facts.length === 0) {
+            savedFactsGrid.innerHTML = '<div class="no-facts">No saved facts yet</div>';
+            return;
+        }
+
         facts.forEach(fact => {
             const card = document.createElement('div');
             card.className = 'saved-fact-card';
@@ -402,10 +409,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="category-tag">${fact.category}</span>
                     <span class="saved-date">${new Date(fact.savedAt).toLocaleDateString()}</span>
                 </div>
-                <button class="delete-saved" onclick="deleteSavedFact('${fact._id}')">
+                <button class="delete-saved" data-fact-id="${fact._id}">
                     <i class="fas fa-trash"></i>
                 </button>
             `;
+
+            // Add delete handler
+            const deleteButton = card.querySelector('.delete-saved');
+            deleteButton.addEventListener('click', async () => {
+                try {
+                    const response = await fetchWithAuth(`/api/facts/saved/${fact._id}`, {
+                        method: 'DELETE'
+                    });
+                    if (response.ok) {
+                        card.remove();
+                        // Reload filters if this was the last fact of a category
+                        loadSavedFacts();
+                    }
+                } catch (error) {
+                    console.error('Error deleting fact:', error);
+                }
+            });
+
             savedFactsGrid.appendChild(card);
         });
     }
@@ -442,4 +467,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Add back button to saved facts container
+    const savedFactsHeader = document.querySelector('.saved-facts-header');
+    const backToHomeButton = document.createElement('button');
+    backToHomeButton.className = 'back-button';
+    backToHomeButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Facts';
+    savedFactsHeader.insertBefore(backToHomeButton, savedFactsHeader.firstChild);
+
+    // Back to home handler
+    backToHomeButton.addEventListener('click', () => {
+        savedFactsContainer.style.display = 'none';
+        categoriesGrid.style.display = 'grid';
+    });
+
+    // Update save button state based on whether fact is saved
+    async function updateSaveButtonState(fact) {
+        if (!currentUser) return;
+        
+        try {
+            const response = await fetchWithAuth('/api/facts/saved');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            const isSaved = data.facts.some(savedFact => savedFact.fact === fact);
+            
+            const saveButton = document.querySelector('.save-button');
+            if (saveButton) {
+                if (isSaved) {
+                    saveButton.classList.add('saved');
+                } else {
+                    saveButton.classList.remove('saved');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking saved state:', error);
+        }
+    }
 }); 
