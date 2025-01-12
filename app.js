@@ -1,14 +1,3 @@
-// Initialize the warp background
-const warpBackground = new WarpBackground({
-    perspective: 100,
-    beamsPerSide: 3,
-    beamSize: 5,
-    beamDelayMax: 3,
-    beamDelayMin: 0,
-    beamDuration: 3,
-    gridColor: 'hsl(var(--border))'
-});
-
 // Constants and state
 const factsContainer = document.getElementById('facts-container');
 const authButton = document.getElementById('auth-button');
@@ -19,9 +8,17 @@ const loadingIndicator = document.getElementById('loading');
 
 let currentTheme = localStorage.getItem('theme') || 'dark';
 let isLoading = false;
-let lastScrollPosition = 0;
 let facts = [];
 let currentFactIndex = 0;
+
+// Mock facts for testing (remove this when backend is ready)
+const mockFacts = [
+    { text: "The human brain can process images in as little as 13 milliseconds.", category: "science" },
+    { text: "The Great Wall of China is not visible from space with the naked eye.", category: "history" },
+    { text: "Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old.", category: "nature" },
+    { text: "The first computer programmer was a woman named Ada Lovelace.", category: "technology" },
+    { text: "There are more stars in the universe than grains of sand on Earth.", category: "space" }
+];
 
 // Categories with their respective themes
 const categories = [
@@ -32,18 +29,21 @@ const categories = [
 
 // Authentication functions
 function setupAuth() {
+    console.log('Setting up auth...');
     const loginForm = document.getElementById('login-form');
     const signupForm = document.getElementById('signup-form');
     const googleAuthButton = document.getElementById('google-auth');
     const authTabs = document.querySelectorAll('.auth-tab');
 
     authButton.addEventListener('click', () => {
+        console.log('Auth button clicked');
         authModal.style.display = 'flex';
     });
 
     authTabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const formType = tab.dataset.tab;
+            console.log('Auth tab clicked:', formType);
             authTabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             
@@ -72,9 +72,11 @@ function setupAuth() {
 
 // Theme functions
 function setupTheme() {
+    console.log('Setting up theme...');
     document.body.setAttribute('data-theme', currentTheme);
     
     themeButton.addEventListener('click', () => {
+        console.log('Theme button clicked');
         themeModal.style.display = 'flex';
     });
 
@@ -88,6 +90,7 @@ function setupTheme() {
     themeOptions.forEach(option => {
         option.addEventListener('click', () => {
             const theme = option.dataset.theme;
+            console.log('Theme selected:', theme);
             currentTheme = theme;
             document.body.setAttribute('data-theme', theme);
             localStorage.setItem('theme', theme);
@@ -98,6 +101,10 @@ function setupTheme() {
 
 // Fact generation and display
 async function generateFact(category = '') {
+    // For testing without backend
+    return mockFacts[Math.floor(Math.random() * mockFacts.length)];
+
+    /* Uncomment this when backend is ready
     try {
         const response = await fetch('/api/facts/generate', {
             method: 'POST',
@@ -122,15 +129,21 @@ async function generateFact(category = '') {
             category: 'error'
         };
     }
+    */
 }
 
 function createFactCard(fact) {
+    console.log('Creating fact card:', fact);
     const card = document.createElement('div');
     card.className = 'fact-card';
     card.setAttribute('data-category', fact.category);
 
     const content = document.createElement('div');
     content.className = 'fact-card-content';
+    
+    // Get category icon based on the fact category
+    const categoryIcon = getCategoryIcon(fact.category);
+    
     content.innerHTML = `
         <h3>${fact.category.charAt(0).toUpperCase() + fact.category.slice(1)}</h3>
         <p>${fact.text}</p>
@@ -140,8 +153,32 @@ function createFactCard(fact) {
     return card;
 }
 
+// Helper function to get category-specific details
+function getCategoryIcon(category) {
+    const icons = {
+        science: '🧬',
+        history: '📜',
+        nature: '🌿',
+        technology: '💻',
+        space: '🌌',
+        art: '🎨',
+        music: '🎵',
+        sports: '⚽',
+        food: '🍳',
+        geography: '🌍',
+        literature: '📚',
+        movies: '🎬',
+        animals: '🦁',
+        psychology: '🧠',
+        medicine: '⚕️'
+    };
+    
+    return icons[category] || '❓';
+}
+
 async function loadMoreFacts() {
     if (isLoading) return;
+    console.log('Loading more facts...');
     isLoading = true;
     loadingIndicator.style.display = 'flex';
 
@@ -156,6 +193,7 @@ async function loadMoreFacts() {
             const card = createFactCard(fact);
             factsContainer.appendChild(card);
         });
+        console.log('Added new facts:', newFacts);
     } catch (error) {
         console.error('Error loading facts:', error);
     } finally {
@@ -172,6 +210,7 @@ function handleScroll() {
 
     // Load more facts when near the bottom
     if (contentHeight - (scrollPosition + containerHeight) < containerHeight) {
+        console.log('Near bottom, loading more facts...');
         loadMoreFacts();
     }
 
@@ -181,10 +220,8 @@ function handleScroll() {
 
 // Initialize the application
 async function initializeApp() {
-    // Mount the warp background
-    const warpContainer = document.getElementById('warp-background');
-    warpBackground.mount(warpContainer);
-
+    console.log('Initializing app...');
+    
     // Setup auth and theme
     setupAuth();
     setupTheme();
@@ -200,11 +237,15 @@ async function initializeApp() {
 }
 
 // Start the app
-document.addEventListener('DOMContentLoaded', initializeApp);
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, starting app...');
+    initializeApp().catch(console.error);
+});
 
 // Auth handlers (implement these based on your backend)
 async function handleLogin(e) {
     e.preventDefault();
+    console.log('Login form submitted');
     const email = e.target.querySelector('input[type="email"]').value;
     const password = e.target.querySelector('input[type="password"]').value;
 
@@ -230,6 +271,7 @@ async function handleLogin(e) {
 
 async function handleSignup(e) {
     e.preventDefault();
+    console.log('Signup form submitted');
     const name = e.target.querySelector('input[type="text"]').value;
     const email = e.target.querySelector('input[type="email"]').value;
     const password = e.target.querySelector('input[type="password"]').value;
@@ -255,5 +297,6 @@ async function handleSignup(e) {
 }
 
 function handleGoogleAuth() {
+    console.log('Google auth clicked');
     window.location.href = '/api/auth/google';
 } 

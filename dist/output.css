@@ -36,6 +36,7 @@ body {
 }
 
 /* Header Controls */
+
 .header-controls {
   position: fixed;
   top: 0;
@@ -66,12 +67,14 @@ body {
 }
 
 /* Modal Styles */
+
 .modal {
   display: none;
   position: fixed;
   inset: 0;
   background-color: hsl(var(--background) / 0.8);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
   z-index: 100;
   align-items: center;
   justify-content: center;
@@ -89,6 +92,7 @@ body {
 }
 
 /* Auth Modal Styles */
+
 .auth-tabs {
   display: flex;
   gap: 1rem;
@@ -127,6 +131,10 @@ body {
   font-size: 1rem;
 }
 
+.auth-form input::-moz-placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
 .auth-form input::placeholder {
   color: hsl(var(--muted-foreground));
 }
@@ -158,6 +166,7 @@ body {
 }
 
 /* Theme Modal Styles */
+
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -184,6 +193,7 @@ body {
 }
 
 /* Facts Container */
+
 .facts-container {
   position: relative;
   height: 100vh;
@@ -193,6 +203,7 @@ body {
 }
 
 /* Hide scrollbar but keep functionality */
+
 .facts-container {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -215,7 +226,8 @@ body {
 
 .fact-card-content {
   background-color: hsl(var(--background) / 0.95);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px);
   border: 2px solid hsl(var(--border));
   border-radius: 1rem;
   padding: 2.5rem;
@@ -252,6 +264,7 @@ body {
 }
 
 /* Category icons */
+
 .fact-card[data-category="science"] h3::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234F46E5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z'/%3E%3C/svg%3E");
 }
@@ -265,6 +278,7 @@ body {
 }
 
 /* Category-specific styles */
+
 .fact-card[data-category="science"] .fact-card-content {
   background: linear-gradient(135deg, hsl(230 60% 10% / 0.95), hsl(230 60% 15% / 0.95));
   border-color: hsl(230 60% 50%);
@@ -306,6 +320,7 @@ body {
 }
 
 /* Loading Indicator */
+
 .loading {
   position: fixed;
   inset: 0;
@@ -313,7 +328,8 @@ body {
   align-items: center;
   justify-content: center;
   background-color: hsl(var(--background) / 0.8);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
   z-index: 100;
 }
 
